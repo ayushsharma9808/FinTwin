@@ -23,6 +23,7 @@ interface AuthContextType {
   isFirstLogin: boolean
   notifications: Notification[]
   login: (email: string) => void
+  signup: (name: string, email: string, password: string) => void
   logout: () => void
   markNotificationRead: (id: string) => void
   clearNotifications: () => void
@@ -31,17 +32,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isFirstLogin, setIsFirstLogin] = useState(true)
+  // TEMPORARY: Authentication disabled - always authenticated with mock user
+  const [user, setUser] = useState<User>({
+    id: "temp-user",
+    name: "Demo User",
+    email: "demo@fintwin.com",
+    avatar: undefined,
+  })
+  const [isFirstLogin, setIsFirstLogin] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
 
   useEffect(() => {
-    // Check for existing session (mocked)
-    const savedUser = localStorage.getItem("fintwin_user")
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-      setIsFirstLogin(false)
-    }
+    // TEMPORARY: Skip authentication checks
   }, [])
 
   const login = (email: string) => {
@@ -55,6 +57,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("fintwin_user", JSON.stringify(newUser))
 
     // Add welcome notification
+    const welcomeNotification: Notification = {
+      id: "welcome-1",
+      title: "Welcome to FinTwin",
+      message: "We help you plan your financial future with AI-powered insights.",
+      timestamp: new Date(),
+      read: false,
+    }
+    setNotifications([welcomeNotification])
+    setIsFirstLogin(true)
+  }
+
+  const signup = (name: string, email: string, password: string) => {
+    const newUser: User = {
+      id: Date.now().toString(),
+      name,
+      email,
+      avatar: undefined,
+    }
+    setUser(newUser)
+    localStorage.setItem("fintwin_user", JSON.stringify(newUser))
+
     const welcomeNotification: Notification = {
       id: "welcome-1",
       title: "Welcome to FinTwin",
@@ -84,10 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
+        isAuthenticated: true, // TEMPORARY: Always authenticated
         isFirstLogin,
         notifications,
         login,
+        signup,
         logout,
         markNotificationRead,
         clearNotifications,

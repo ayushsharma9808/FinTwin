@@ -71,10 +71,8 @@ export default function ConnectAccountsPage() {
   const [isConnecting, setIsConnecting] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login")
-    }
-  }, [isAuthenticated, router])
+    // TEMPORARY: Skip authentication redirect
+  }, [])
 
   const handleConnect = (account: Account) => {
     setSelectedAccount(account)
@@ -95,9 +93,10 @@ export default function ConnectAccountsPage() {
     setAccounts((prev) => prev.map((a) => (a.id === accountId ? { ...a, connected: false } : a)))
   }
 
-  if (!isAuthenticated) {
-    return null
-  }
+  // TEMPORARY: Skip authentication check
+  // if (!isAuthenticated) {
+  //   return null
+  // }
 
   const connectedCount = accounts.filter((a) => a.connected).length
 

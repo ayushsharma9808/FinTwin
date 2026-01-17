@@ -40,3 +40,6 @@ export function formatINRCompact(amount: number): string {
   }
   return `${sign}₹${absAmount}`
 }
+
+// Alias for formatINRFull for consistency
+export const formatCurrency = formatINRFull

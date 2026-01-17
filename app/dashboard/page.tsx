@@ -37,17 +37,15 @@ export default function DashboardPage() {
   const [showUpload, setShowUpload] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login")
-      return
-    }
+    // TEMPORARY: Skip authentication redirect
     const timer = setTimeout(() => setIsLoading(false), 1500)
     return () => clearTimeout(timer)
-  }, [isAuthenticated, router])
+  }, [])
 
-  if (!isAuthenticated) {
-    return null
-  }
+  // TEMPORARY: Skip authentication check
+  // if (!isAuthenticated) {
+  //   return null
+  // }
 
   if (isLoading) {
     return (
