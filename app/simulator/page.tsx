@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { BentoCard } from "@/components/cards/bento-card"
 import { TrendChart } from "@/components/charts/trend-chart"
 import { MonteCarloChart } from "@/components/charts/monte-carlo-chart"
-import { ScenarioCards } from "@/components/scenarios/scenario-cards"
+import { ScenarioCardsEnhanced } from "@/components/scenarios/scenario-cards-enhanced"
 import { SkeletonCard } from "@/components/ui/skeleton-card"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -40,18 +40,21 @@ export default function SimulatorPage() {
     const savingsAmount = monthly - investmentAmount
     const multiplier = scenarioMultipliers[scenario]
     const eventImpact = selectedLifeEvent ? 1 + selectedLifeEvent.impact / 100 : 1
+    const monthlyEventImpact = selectedLifeEvent?.monthlyImpact || 0
 
     const baseValue = 2500000
-    const months = ["Now", "3M", "6M", "9M", "12M", "18M", "24M"]
+    const months = ["Now", "3M", "6M", "9M", "12M", "18M", "24M", "30M", "36M"]
 
     return months.map((name, i) => {
       const growth = Math.pow(1 + (multiplier - 1) / 12, i * (i < 5 ? 3 : 6))
       const investmentGrowth = investmentAmount * i * (i < 5 ? 3 : 6) * growth * eventImpact
       const savings = savingsAmount * i * (i < 5 ? 3 : 6)
+      const eventCost = selectedLifeEvent && i > 0 ? monthlyEventImpact * (i < 5 ? 3 : 6) : 0
+      
       return {
         name,
         actual: i === 0 ? baseValue : null,
-        predicted: Math.round((baseValue + investmentGrowth + savings) * eventImpact),
+        predicted: Math.round((baseValue + investmentGrowth + savings + eventCost) * eventImpact),
       }
     })
   }, [income, expenses, investment, scenario, selectedLifeEvent])
@@ -189,19 +192,26 @@ export default function SimulatorPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-semibold">Projected Outcome</h3>
-              <p className="text-sm text-muted-foreground">24-month projection</p>
+              <p className="text-sm text-muted-foreground">36-month projection with life events</p>
             </div>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
-                scenario === "bull"
-                  ? "bg-chart-2/20 text-chart-2"
-                  : scenario === "bear"
-                    ? "bg-chart-4/20 text-chart-4"
-                    : "bg-chart-5/20 text-chart-5"
-              }`}
-            >
-              {scenario} Market
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
+                  scenario === "bull"
+                    ? "bg-chart-2/20 text-chart-2"
+                    : scenario === "bear"
+                      ? "bg-chart-4/20 text-chart-4"
+                      : "bg-chart-5/20 text-chart-5"
+                }`}
+              >
+                {scenario} Market
+              </span>
+              {selectedLifeEvent && (
+                <span className="rounded-full px-3 py-1 text-xs font-medium bg-primary/20 text-primary">
+                  {selectedLifeEvent.title}
+                </span>
+              )}
+            </div>
           </div>
           <TrendChart data={projectedData} height={280} />
         </BentoCard>
@@ -211,7 +221,7 @@ export default function SimulatorPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="md:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4"
+          className="md:col-span-3 grid grid-cols-2 md:grid-cols-5 gap-4"
         >
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">Monthly Savings</p>
@@ -233,9 +243,19 @@ export default function SimulatorPage() {
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">Final Value (24M)</p>
+            <p className="text-xs text-muted-foreground">Final Value (36M)</p>
             <p className="text-xl font-semibold mt-1">{formatINR(summary.finalValue || 0)}</p>
           </div>
+          {selectedLifeEvent && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <p className="text-xs text-muted-foreground">Event Impact</p>
+              <p className={`text-xl font-semibold mt-1 ${
+                selectedLifeEvent.impact > 0 ? "text-green-600" : "text-red-600"
+              }`}>
+                {selectedLifeEvent.impact > 0 ? "+" : ""}{selectedLifeEvent.impact}%
+              </p>
+            </div>
+          )}
         </motion.div>
 
         <BentoCard colSpan={3} delay={0.25}>
@@ -247,7 +267,7 @@ export default function SimulatorPage() {
         </BentoCard>
 
         <BentoCard colSpan={3} delay={0.3}>
-          <ScenarioCards onScenarioSelect={setSelectedLifeEvent} />
+          <ScenarioCardsEnhanced onScenarioSelect={setSelectedLifeEvent} />
         </BentoCard>
 
         {/* Insights */}

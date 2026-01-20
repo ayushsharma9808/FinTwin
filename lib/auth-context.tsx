@@ -23,7 +23,6 @@ interface AuthContextType {
   isFirstLogin: boolean
   notifications: Notification[]
   login: (email: string) => void
-  signup: (name: string, email: string, password: string) => void
   logout: () => void
   markNotificationRead: (id: string) => void
   clearNotifications: () => void
@@ -32,46 +31,24 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // TEMPORARY: Authentication disabled - always authenticated with mock user
-  const [user, setUser] = useState<User>({
-    id: "temp-user",
-    name: "Demo User",
-    email: "demo@fintwin.com",
-    avatar: undefined,
-  })
+  const [user, setUser] = useState<User | null>(null)
   const [isFirstLogin, setIsFirstLogin] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
 
   useEffect(() => {
-    // TEMPORARY: Skip authentication checks
+    // Set default user for demo
+    setUser({
+      id: "temp-user",
+      name: "Demo User",
+      email: "demo@fintwin.com",
+      avatar: undefined,
+    })
   }, [])
 
   const login = (email: string) => {
     const newUser: User = {
       id: "1",
       name: email.split("@")[0],
-      email,
-      avatar: undefined,
-    }
-    setUser(newUser)
-    localStorage.setItem("fintwin_user", JSON.stringify(newUser))
-
-    // Add welcome notification
-    const welcomeNotification: Notification = {
-      id: "welcome-1",
-      title: "Welcome to FinTwin",
-      message: "We help you plan your financial future with AI-powered insights.",
-      timestamp: new Date(),
-      read: false,
-    }
-    setNotifications([welcomeNotification])
-    setIsFirstLogin(true)
-  }
-
-  const signup = (name: string, email: string, password: string) => {
-    const newUser: User = {
-      id: Date.now().toString(),
-      name,
       email,
       avatar: undefined,
     }
@@ -107,11 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: true, // TEMPORARY: Always authenticated
+        isAuthenticated: !!user,
         isFirstLogin,
         notifications,
         login,
-        signup,
         logout,
         markNotificationRead,
         clearNotifications,

@@ -1,6 +1,7 @@
 "use client"
 
 import { Brain, SlidersHorizontal, PieChart, Link2, Settings, Home, ChevronUp, User2, PanelLeftClose, PanelLeftOpen, Calculator } from "lucide-react"
+import { usePathname } from "next/navigation"
 import { useSidebar } from "@/components/ui/sidebar"
 
 import {
@@ -77,25 +78,38 @@ function SidebarToggle() {
 }
 
 export function AppSidebar() {
+  const pathname = usePathname()
+  
   return (
     <div className="w-16 h-screen bg-sidebar border-r border-sidebar-border flex flex-col">
       <div className="p-3 flex flex-col items-center">
-        <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-sm">
+        <div className="w-10 h-10 flex items-center justify-center rounded-lg text-white shadow-sm" style={{backgroundColor: '#11650b'}}>
           <span className="text-sm font-bold">FT</span>
         </div>
       </div>
       <div className="flex-1 p-3">
         <div className="flex flex-col gap-3">
-          {items.map((item) => (
-            <a
-              key={item.title}
-              href={item.url}
-              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-blue-500/10 data-[active=true]:bg-blue-500/20 transition-all duration-200 group"
-              title={item.title}
-            >
-              <item.icon className="h-5 w-5 text-sidebar-foreground group-hover:text-blue-400 transition-colors" />
-            </a>
-          ))}
+          {items.map((item) => {
+            const isActive = pathname === item.url
+            return (
+              <a
+                key={item.title}
+                href={item.url}
+                className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-200 group ${
+                  isActive 
+                    ? 'bg-blue-500/20 text-blue-400' 
+                    : 'hover:bg-blue-500/10 text-sidebar-foreground'
+                }`}
+                title={item.title}
+              >
+                <item.icon className={`h-5 w-5 transition-colors ${
+                  isActive 
+                    ? 'text-blue-400' 
+                    : 'text-sidebar-foreground group-hover:text-blue-400'
+                }`} />
+              </a>
+            )
+          })}
         </div>
       </div>
       <div className="p-3 border-t border-sidebar-border">

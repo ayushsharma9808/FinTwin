@@ -4,9 +4,10 @@ import type React from "react"
 
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Briefcase, Plane, Building2, HeartPulse, PauseCircle, AlertTriangle, CheckCircle2 } from "lucide-react"
+import { Briefcase, Plane, Building2, HeartPulse, PauseCircle, AlertTriangle, CheckCircle2, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatINR } from "@/lib/format"
+import { Input } from "@/components/ui/input"
 
 interface Scenario {
   id: string
@@ -79,6 +80,12 @@ interface ScenarioCardsProps {
 
 export function ScenarioCards({ onScenarioSelect, className }: ScenarioCardsProps) {
   const [selectedScenario, setSelectedScenario] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const filteredScenarios = scenarios.filter(scenario =>
+    scenario.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    scenario.description.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const handleSelect = (scenario: Scenario) => {
     if (selectedScenario === scenario.id) {
@@ -93,11 +100,11 @@ export function ScenarioCards({ onScenarioSelect, className }: ScenarioCardsProp
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case "low":
-        return "text-chart-2 bg-chart-2/10"
+        return "text-green-600 bg-green-50 dark:bg-green-950"
       case "medium":
-        return "text-chart-4 bg-chart-4/10"
+        return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950"
       case "high":
-        return "text-chart-5 bg-chart-5/10"
+        return "text-red-600 bg-red-50 dark:bg-red-950"
       default:
         return "text-muted-foreground bg-muted"
     }
@@ -120,8 +127,18 @@ export function ScenarioCards({ onScenarioSelect, className }: ScenarioCardsProp
         )}
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search scenarios..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {scenarios.map((scenario) => {
+        {filteredScenarios.map((scenario) => {
           const isSelected = selectedScenario === scenario.id
           const Icon = scenario.icon
 
@@ -132,9 +149,9 @@ export function ScenarioCards({ onScenarioSelect, className }: ScenarioCardsProp
               whileHover={{ y: -2 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                "relative rounded-xl border p-4 text-left transition-all",
+                "relative rounded-xl border p-4 text-left transition-all duration-200 hover:shadow-md",
                 isSelected
-                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                  ? "border-primary bg-primary/5 ring-1 ring-primary shadow-md"
                   : "border-border bg-card hover:border-muted-foreground/50",
               )}
             >
@@ -155,15 +172,21 @@ export function ScenarioCards({ onScenarioSelect, className }: ScenarioCardsProp
               </div>
 
               <div className="mt-3 flex items-center justify-between text-xs">
-                <span className={cn("rounded-full px-2 py-0.5 capitalize", getRiskColor(scenario.riskLevel))}>
+                <span className={cn("rounded-full px-2 py-0.5 capitalize font-medium", getRiskColor(scenario.riskLevel))}>
                   {scenario.riskLevel} risk
                 </span>
-                <span className="text-chart-5 font-medium">{scenario.impact}%</span>
+                <span className="text-red-600 font-medium">{scenario.impact}%</span>
               </div>
             </motion.button>
           )
         })}
       </div>
+
+      {filteredScenarios.length === 0 && searchQuery && (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No scenarios found matching "{searchQuery}"</p>
+        </div>
+      )}
 
       <AnimatePresence>
         {selectedScenario && (
@@ -177,8 +200,8 @@ export function ScenarioCards({ onScenarioSelect, className }: ScenarioCardsProp
               const scenario = scenarios.find((s) => s.id === selectedScenario)!
               return (
                 <div className="rounded-xl border border-border bg-muted/50 p-4">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <AlertTriangle className="h-4 w-4 text-chart-4" />
+                  <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                    <AlertTriangle className="h-4 w-4 text-primary" />
                     Scenario Impact Analysis
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-4 text-center">
@@ -188,11 +211,11 @@ export function ScenarioCards({ onScenarioSelect, className }: ScenarioCardsProp
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Portfolio Impact</p>
-                      <p className="mt-1 text-sm font-semibold text-chart-5">{scenario.impact}%</p>
+                      <p className="mt-1 text-sm font-semibold text-red-600">{scenario.impact}%</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Projected Loss</p>
-                      <p className="mt-1 text-sm font-semibold text-chart-5">{formatINR(scenario.projectedLoss)}</p>
+                      <p className="mt-1 text-sm font-semibold text-red-600">{formatINR(scenario.projectedLoss)}</p>
                     </div>
                   </div>
                 </div>
