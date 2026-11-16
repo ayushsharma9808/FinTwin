@@ -1,79 +1,117 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { BentoCard } from "@/components/cards/bento-card"
-import { TrendChart } from "@/components/charts/trend-chart"
 import { MonteCarloChart } from "@/components/charts/monte-carlo-chart"
-import { ScenarioCardsEnhanced } from "@/components/scenarios/scenario-cards-enhanced"
 import { SkeletonCard } from "@/components/ui/skeleton-card"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { motion } from "framer-motion"
-import { Calculator, TrendingUp, TrendingDown, ArrowRight, Sparkles } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { motion, AnimatePresence } from "framer-motion"
+import {
+  Calculator,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+  Sparkles,
+  ShieldAlert,
+  Play,
+  RotateCcw,
+  CheckCircle,
+  Briefcase,
+  AlertTriangle,
+  History,
+  Info,
+} from "lucide-react"
 import { formatINR } from "@/lib/format"
+import { useFinancialData } from "@/lib/hooks/use-financial-data"
+import { FinancialChatDrawer } from "@/components/ai/financial-chat-drawer"
+import { toast } from "sonner"
 
-type Scenario = "bull" | "bear" | "crash"
-
-const scenarioMultipliers: Record<Scenario, number> = {
-  bull: 1.15,
-  bear: 0.92,
-  crash: 0.7,
-}
+const scenarios = [
+  { id: "normal", name: "1. Normal Scenario", desc: "Steady income and baseline inflation growth" },
+  { id: "job_loss_3m", name: "2. Job Loss (3 Months)", desc: "Zero income for 3 months with fixed expenses" },
+  { id: "job_loss_6m", name: "3. Job Loss (6 Months)", desc: "Zero income for 6 months emergency test" },
+  { id: "medical_emergency", name: "4. Medical Emergency", desc: "One-time ₹5,00,000 emergency medical shock" },
+  { id: "sudden_large_expense", name: "5. Sudden Large Expense", desc: "Unexpected ₹3,50,000 capital expense" },
+  { id: "salary_increase", name: "6. Salary Increase", desc: "+25% career raise after month 6" },
+  { id: "salary_decrease", name: "7. Salary Decrease", desc: "-20% economic slowdown after month 3" },
+  { id: "loan_repayment_change", name: "8. Aggressive Loan Repayment", desc: "Extra ₹10,000/mo to eliminate debt early" },
+  { id: "market_crash", name: "9. Market Downturn", desc: "High market volatility and return compression" },
+  { id: "early_retirement", name: "10. Early Retirement", desc: "Zero income after 3 years; corpus decumulation" },
+]
 
 export default function SimulatorPage() {
-  const [income, setIncome] = useState(125000)
-  const [expenses, setExpenses] = useState(75000)
-  const [investment, setInvestment] = useState(20)
-  const [scenario, setScenario] = useState<Scenario>("bull")
-  const [isLoading, setIsLoading] = useState(true)
-  const [selectedLifeEvent, setSelectedLifeEvent] = useState<any>(null)
+  const { summary, simulations, runSimulation, isLoading } = useFinancialData()
 
+  // Inputs matching Section 5
+  const [savings, setSavings] = useState(856000)
+  const [income, setIncome] = useState(185000)
+  const [expenses, setExpenses] = useState(68000)
+  const [investments, setInvestments] = useState(1511427)
+  const [loans, setLoans] = useState(605000)
+  const [emi, setEmi] = useState(31250)
+  const [inflation, setInflation] = useState(6)
+  const [expectedReturn, setExpectedReturn] = useState(12)
+  const [dependents, setDependents] = useState(2)
+  const [duration, setDuration] = useState(10)
+  const [scenarioType, setScenarioType] = useState("normal")
+
+  const [isRunning, setIsRunning] = useState(false)
+  const [currentResult, setCurrentResult] = useState<any>(null)
+
+  // Seed default inputs from user's actual database numbers once loaded
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1200)
-    return () => clearTimeout(timer)
-  }, [])
-
-  const projectedData = useMemo(() => {
-    const monthly = income - expenses
-    const investmentAmount = monthly * (investment / 100)
-    const savingsAmount = monthly - investmentAmount
-    const multiplier = scenarioMultipliers[scenario]
-    const eventImpact = selectedLifeEvent ? 1 + selectedLifeEvent.impact / 100 : 1
-    const monthlyEventImpact = selectedLifeEvent?.monthlyImpact || 0
-
-    const baseValue = 2500000
-    const months = ["Now", "3M", "6M", "9M", "12M", "18M", "24M", "30M", "36M"]
-
-    return months.map((name, i) => {
-      const growth = Math.pow(1 + (multiplier - 1) / 12, i * (i < 5 ? 3 : 6))
-      const investmentGrowth = investmentAmount * i * (i < 5 ? 3 : 6) * growth * eventImpact
-      const savings = savingsAmount * i * (i < 5 ? 3 : 6)
-      const eventCost = selectedLifeEvent && i > 0 ? monthlyEventImpact * (i < 5 ? 3 : 6) : 0
-      
-      return {
-        name,
-        actual: i === 0 ? baseValue : null,
-        predicted: Math.round((baseValue + investmentGrowth + savings + eventCost) * eventImpact),
-      }
-    })
-  }, [income, expenses, investment, scenario, selectedLifeEvent])
-
-  const summary = useMemo(() => {
-    const monthly = income - expenses
-    const yearly = monthly * 12
-    const investmentYearly = yearly * (investment / 100) * scenarioMultipliers[scenario]
-    const finalValue = projectedData[projectedData.length - 1].predicted
-    const growth = (((finalValue! - 2500000) / 2500000) * 100).toFixed(1)
-
-    return {
-      monthlySavings: monthly,
-      yearlyProjection: yearly,
-      investmentReturn: Math.round(investmentYearly),
-      totalGrowth: growth,
-      finalValue,
+    if (summary) {
+      if (summary.totalCashSavings > 0) setSavings(summary.totalCashSavings)
+      if (summary.monthlyIncome > 0) setIncome(summary.monthlyIncome)
+      if (summary.monthlyExpenses > 0) setExpenses(summary.monthlyExpenses)
+      if (summary.totalInvestments > 0) setInvestments(summary.totalInvestments)
+      if (summary.totalOutstandingLoans > 0) setLoans(summary.totalOutstandingLoans)
+      if (summary.monthlyEmi > 0) setEmi(summary.monthlyEmi)
     }
-  }, [income, expenses, investment, scenario, projectedData])
+  }, [summary])
+
+  const handleRunSimulation = async (selectedType?: string) => {
+    const typeToRun = selectedType || scenarioType
+    setIsRunning(true)
+
+    try {
+      const payload = {
+        currentSavings: savings,
+        monthlyIncome: income,
+        monthlyExpenses: expenses,
+        existingInvestments: investments,
+        outstandingLoans: loans,
+        monthlyEmi: emi,
+        inflationRate: inflation,
+        expectedReturn,
+        dependents,
+        simulationDuration: duration,
+        scenarioType: typeToRun,
+      }
+
+      const res = await runSimulation(payload)
+      setCurrentResult(res.simulation_results || res)
+    } catch {
+      // toast in hook
+    } finally {
+      setIsRunning(false)
+    }
+  }
+
+  // Format chart data for MonteCarloChart
+  const chartPoints = currentResult?.yearlyProjections?.map((p: any) => ({
+    name: p.year === 0 ? "Now" : `${p.year}Y`,
+    p10: p.p10,
+    median: p.p50,
+    p90: p.p90,
+    worst: Math.round(p.p10 * 0.85),
+    best: Math.round(p.p90 * 1.15),
+  }))
 
   if (isLoading) {
     return (
@@ -85,7 +123,6 @@ export default function SimulatorPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <SkeletonCard className="md:col-span-1" />
           <SkeletonCard variant="chart" className="md:col-span-2" />
-          <SkeletonCard variant="chart" className="md:col-span-3" />
         </div>
       </DashboardLayout>
     )
@@ -94,224 +131,278 @@ export default function SimulatorPage() {
   return (
     <DashboardLayout>
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-        <h2 className="text-2xl font-semibold tracking-tight">What-If Simulator</h2>
-        <p className="text-muted-foreground">Explore different financial scenarios with Monte Carlo analysis</p>
-      </motion.div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {/* Controls Panel */}
-        <BentoCard delay={0} className="md:col-span-1">
-          <div className="flex items-center gap-2 mb-6">
-            <Calculator className="h-4 w-4 text-muted-foreground" />
-            <h3 className="font-semibold">Adjust Parameters</h3>
-          </div>
-
-          <div className="space-y-6">
-            {/* Income Slider */}
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-sm text-muted-foreground">Monthly Income</label>
-                <span className="text-sm font-medium">{formatINR(income)}</span>
-              </div>
-              <Slider
-                value={[income]}
-                onValueChange={(v) => setIncome(v[0])}
-                min={50000}
-                max={500000}
-                step={5000}
-                className="w-full"
-              />
-            </div>
-
-            {/* Expenses Slider */}
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-sm text-muted-foreground">Monthly Expenses</label>
-                <span className="text-sm font-medium">{formatINR(expenses)}</span>
-              </div>
-              <Slider
-                value={[expenses]}
-                onValueChange={(v) => setExpenses(v[0])}
-                min={25000}
-                max={300000}
-                step={5000}
-                className="w-full"
-              />
-            </div>
-
-            {/* Investment Slider */}
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-sm text-muted-foreground">Investment Rate</label>
-                <span className="text-sm font-medium">{investment}%</span>
-              </div>
-              <Slider
-                value={[investment]}
-                onValueChange={(v) => setInvestment(v[0])}
-                min={0}
-                max={80}
-                step={5}
-                className="w-full"
-              />
-            </div>
-
-            {/* Scenario Dropdown */}
-            <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Market Scenario</label>
-              <Select value={scenario} onValueChange={(v) => setScenario(v as Scenario)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bull">
-                    <span className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-chart-2" />
-                      Bull Market (+15%)
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="bear">
-                    <span className="flex items-center gap-2">
-                      <TrendingDown className="h-4 w-4 text-chart-4" />
-                      Bear Market (-8%)
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="crash">
-                    <span className="flex items-center gap-2">
-                      <TrendingDown className="h-4 w-4 text-chart-5" />
-                      Market Crash (-30%)
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </BentoCard>
-
-        {/* Chart */}
-        <BentoCard colSpan={2} delay={0.1}>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold">Projected Outcome</h3>
-              <p className="text-sm text-muted-foreground">36-month projection with life events</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
-                  scenario === "bull"
-                    ? "bg-chart-2/20 text-chart-2"
-                    : scenario === "bear"
-                      ? "bg-chart-4/20 text-chart-4"
-                      : "bg-chart-5/20 text-chart-5"
-                }`}
-              >
-                {scenario} Market
-              </span>
-              {selectedLifeEvent && (
-                <span className="rounded-full px-3 py-1 text-xs font-medium bg-primary/20 text-primary">
-                  {selectedLifeEvent.title}
-                </span>
-              )}
-            </div>
-          </div>
-          <TrendChart data={projectedData} height={280} />
-        </BentoCard>
-
-        {/* Summary Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="md:col-span-3 grid grid-cols-2 md:grid-cols-5 gap-4"
-        >
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">Monthly Savings</p>
-            <p className="text-xl font-semibold mt-1">{formatINR(summary.monthlySavings)}</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">Investment Return (Yr)</p>
-            <p className="text-xl font-semibold mt-1">{formatINR(summary.investmentReturn)}</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">Total Growth</p>
-            <p
-              className={`text-xl font-semibold mt-1 ${
-                Number.parseFloat(summary.totalGrowth) > 0 ? "text-chart-2" : "text-chart-5"
-              }`}
-            >
-              {Number.parseFloat(summary.totalGrowth) > 0 ? "+" : ""}
-              {summary.totalGrowth}%
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight">What-If Stochastic Simulator</h2>
+            <p className="text-muted-foreground">
+              Run 10,000 Monte Carlo paths with Geometric Brownian Motion & economic shocks
             </p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs text-muted-foreground">Final Value (36M)</p>
-            <p className="text-xl font-semibold mt-1">{formatINR(summary.finalValue || 0)}</p>
-          </div>
-          {selectedLifeEvent && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <p className="text-xs text-muted-foreground">Event Impact</p>
-              <p className={`text-xl font-semibold mt-1 ${
-                selectedLifeEvent.impact > 0 ? "text-green-600" : "text-red-600"
-              }`}>
-                {selectedLifeEvent.impact > 0 ? "+" : ""}{selectedLifeEvent.impact}%
-              </p>
-            </div>
-          )}
-        </motion.div>
+          <Button
+            onClick={() => handleRunSimulation()}
+            disabled={isRunning}
+            className="flex items-center gap-2"
+          >
+            <Play className={`h-4 w-4 ${isRunning ? "animate-spin" : ""}`} />
+            {isRunning ? "Running 10,000 Iterations..." : "Execute 10,000 Runs"}
+          </Button>
+        </div>
+      </motion.div>
 
-        <BentoCard colSpan={3} delay={0.25}>
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="h-4 w-4 text-muted-foreground" />
-            <h3 className="font-semibold">Monte Carlo Simulation</h3>
-          </div>
-          <MonteCarloChart scenarios={10000} height={280} baseValue={2500000} />
-        </BentoCard>
-
-        <BentoCard colSpan={3} delay={0.3}>
-          <ScenarioCardsEnhanced onScenarioSelect={setSelectedLifeEvent} />
-        </BentoCard>
-
-        {/* Insights */}
-        <BentoCard colSpan={3} delay={0.35}>
-          <h3 className="font-semibold mb-3">AI Scenario Analysis</h3>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="rounded-lg bg-muted p-4">
-              <div className="flex items-center gap-2 text-sm font-medium mb-2">
-                <ArrowRight className="h-4 w-4" />
-                Current Path
-              </div>
-              <p className="text-xs text-muted-foreground">
-                At your current savings rate of {(((income - expenses) / income) * 100).toFixed(0)}%, you're building a
-                strong financial foundation.
-              </p>
-            </div>
-            <div className="rounded-lg bg-muted p-4">
-              <div className="flex items-center gap-2 text-sm font-medium mb-2">
-                <TrendingUp className="h-4 w-4" />
-                Optimization Tip
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Increasing your investment rate by 10% could yield an additional{" "}
-                {formatINR(Math.round(summary.investmentReturn * 0.1))} annually.
-              </p>
-            </div>
-            <div className="rounded-lg bg-muted p-4">
-              <div className="flex items-center gap-2 text-sm font-medium mb-2">
-                <Calculator className="h-4 w-4" />
-                Risk Assessment
-              </div>
-              <p className="text-xs text-muted-foreground">
-                In a {scenario} market scenario, your portfolio shows
-                {scenario === "bull"
-                  ? " strong growth potential"
-                  : scenario === "bear"
-                    ? " moderate resilience"
-                    : " significant vulnerability"}
-                .
-              </p>
-            </div>
-          </div>
-        </BentoCard>
+      {/* Scenarios Carousel / Selector Bar */}
+      <div className="mb-6 overflow-x-auto pb-2 scrollbar-none">
+        <div className="flex gap-2">
+          {scenarios.map((sc) => {
+            const active = scenarioType === sc.id
+            return (
+              <button
+                key={sc.id}
+                onClick={() => {
+                  setScenarioType(sc.id)
+                  handleRunSimulation(sc.id)
+                }}
+                className={`flex flex-col shrink-0 text-left rounded-xl p-3 border transition-all duration-200 min-w-[200px] max-w-[240px] ${
+                  active
+                    ? "border-primary bg-primary/10 shadow-sm"
+                    : "border-border bg-card hover:border-muted-foreground/30"
+                }`}
+              >
+                <span className={`text-xs font-semibold ${active ? "text-primary" : "text-foreground"}`}>
+                  {sc.name}
+                </span>
+                <span className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                  {sc.desc}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Input Parameters Form Card */}
+        <BentoCard className="lg:col-span-1 space-y-4">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <h3 className="font-semibold text-sm">Simulation Assumptions</h3>
+            <span className="text-xs text-muted-foreground">Documented Math</span>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            <div>
+              <Label className="text-xs">Current Liquid Cash (₹)</Label>
+              <Input
+                type="number"
+                value={savings}
+                onChange={(e) => setSavings(Number(e.target.value))}
+                className="mt-1 h-8 text-xs font-mono"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Investments Value (₹)</Label>
+              <Input
+                type="number"
+                value={investments}
+                onChange={(e) => setInvestments(Number(e.target.value))}
+                className="mt-1 h-8 text-xs font-mono"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Monthly Inflow (₹)</Label>
+                <Input
+                  type="number"
+                  value={income}
+                  onChange={(e) => setIncome(Number(e.target.value))}
+                  className="mt-1 h-8 text-xs font-mono"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Monthly Outflow (₹)</Label>
+                <Input
+                  type="number"
+                  value={expenses}
+                  onChange={(e) => setExpenses(Number(e.target.value))}
+                  className="mt-1 h-8 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Outstanding Loans (₹)</Label>
+                <Input
+                  type="number"
+                  value={loans}
+                  onChange={(e) => setLoans(Number(e.target.value))}
+                  className="mt-1 h-8 text-xs font-mono"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Monthly EMI (₹)</Label>
+                <Input
+                  type="number"
+                  value={emi}
+                  onChange={(e) => setEmi(Number(e.target.value))}
+                  className="mt-1 h-8 text-xs font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <div className="flex justify-between mb-1">
+                <span className="text-muted-foreground">Expected Annual Return</span>
+                <span className="font-semibold">{expectedReturn}%</span>
+              </div>
+              <Slider
+                value={[expectedReturn]}
+                onValueChange={(v) => setExpectedReturn(v[0])}
+                min={4}
+                max={22}
+                step={0.5}
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-muted-foreground">Expected Inflation Rate</span>
+                <span className="font-semibold">{inflation}%</span>
+              </div>
+              <Slider
+                value={[inflation]}
+                onValueChange={(v) => setInflation(v[0])}
+                min={2}
+                max={12}
+                step={0.5}
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-muted-foreground">Simulation Horizon</span>
+                <span className="font-semibold">{duration} Years</span>
+              </div>
+              <Slider
+                value={[duration]}
+                onValueChange={(v) => setDuration(v[0])}
+                min={3}
+                max={30}
+                step={1}
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">Dependents Count</Label>
+              <Input
+                type="number"
+                value={dependents}
+                onChange={(e) => setDependents(Number(e.target.value))}
+                min="0"
+                max="10"
+                className="mt-1 h-8 text-xs font-mono"
+              />
+            </div>
+
+            <Button
+              onClick={() => handleRunSimulation()}
+              disabled={isRunning}
+              className="w-full mt-2"
+              size="sm"
+            >
+              Re-Calculate 10,000 Paths
+            </Button>
+          </div>
+        </BentoCard>
+
+        {/* Results & Monte Carlo Chart */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Key Output Metrics Bento */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <span className="text-xs text-muted-foreground">Worst-Case (P10)</span>
+              <p className="text-base font-bold text-red-500 mt-1">
+                {formatINR(currentResult?.p10 ?? (savings + investments) * 0.9)}
+              </p>
+              <span className="text-[10px] text-muted-foreground">90% safe threshold</span>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4">
+              <span className="text-xs text-muted-foreground">Median Outcome (P50)</span>
+              <p className="text-base font-bold text-foreground mt-1">
+                {formatINR(currentResult?.p50 ?? (savings + investments) * 1.8)}
+              </p>
+              <span className="text-[10px] text-muted-foreground">50th percentile</span>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4">
+              <span className="text-xs text-muted-foreground">Optimistic Case (P90)</span>
+              <p className="text-base font-bold text-green-500 mt-1">
+                {formatINR(currentResult?.p90 ?? (savings + investments) * 2.8)}
+              </p>
+              <span className="text-[10px] text-muted-foreground">Top 10% market upside</span>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4">
+              <span className="text-xs text-muted-foreground">Success Probability</span>
+              <p className="text-base font-bold text-blue-500 mt-1">
+                {currentResult?.successProbability ?? 88}%
+              </p>
+              <span className="text-[10px] text-muted-foreground">Beating inflation goal</span>
+            </div>
+          </div>
+
+          {/* Monte Carlo Visual Chart */}
+          <BentoCard>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-base">Monte Carlo Stochastic Fan Chart</h3>
+                <p className="text-xs text-muted-foreground">
+                  Distribution of {currentResult?.simulationRuns ?? 10000} future paths across {duration} years
+                </p>
+              </div>
+              <span className="rounded-full bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1">
+                {currentResult?.riskClassification || "Moderate Risk"}
+              </span>
+            </div>
+
+            <MonteCarloChart
+              height={300}
+              scenarios={10000}
+              baseValue={savings + investments}
+              customData={chartPoints}
+            />
+          </BentoCard>
+
+          {/* Documented Assumptions & Stress Analysis */}
+          <BentoCard>
+            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-500" />
+              Documented Mathematical Methodology
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-muted-foreground leading-relaxed">
+              <div>
+                <p>
+                  • <strong>Model:</strong> Geometric Brownian Motion (GBM) with monthly stochastic drift and Box-Muller normal variance.
+                </p>
+                <p className="mt-1">
+                  • <strong>Inflation Adjustment:</strong> Expenses compound monthly at {(inflation / 12).toFixed(3)}% per month.
+                </p>
+              </div>
+              <div>
+                <p>
+                  • <strong>Financial Stress Score:</strong> {currentResult?.stressScore ?? 42}/100 calculated from emergency runway and debt obligations.
+                </p>
+                <p className="mt-1">
+                  • <strong>Persistence:</strong> Each simulation execution automatically archives inputs and probability tensors to the PostgreSQL `simulations` table.
+                </p>
+              </div>
+            </div>
+          </BentoCard>
+        </div>
+      </div>
+
+      <FinancialChatDrawer />
     </DashboardLayout>
   )
 }

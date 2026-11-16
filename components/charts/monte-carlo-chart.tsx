@@ -9,10 +9,23 @@ interface MonteCarloChartProps {
   scenarios?: number
   height?: number
   baseValue?: number
+  customData?: Array<{
+    name: string
+    p10: number
+    p25?: number
+    median: number
+    p75?: number
+    p90: number
+    worst?: number
+    best?: number
+  }>
 }
 
-export function MonteCarloChart({ scenarios = 10000, height = 300, baseValue = 2500000 }: MonteCarloChartProps) {
+export function MonteCarloChart({ scenarios = 10000, height = 300, baseValue = 2500000, customData }: MonteCarloChartProps) {
   const chartData = useMemo(() => {
+    if (customData && customData.length > 0) {
+      return customData
+    }
     // Generate probability distribution data for Monte Carlo visualization
     const years = ["Now", "1Y", "2Y", "3Y", "5Y", "10Y"]
 

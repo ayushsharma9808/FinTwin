@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useCallback, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search, Sparkles, TrendingUp, ArrowRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -29,6 +30,7 @@ interface GlobalSearchProps {
 }
 
 export function GlobalSearch({ className, onSearch, onSuggestionSelect }: GlobalSearchProps) {
+  const router = useRouter()
   const [query, setQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
@@ -145,7 +147,11 @@ export function GlobalSearch({ className, onSearch, onSuggestionSelect }: Global
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
                   onClick={() => {
-                    onSuggestionSelect?.(suggestion)
+                    if (onSuggestionSelect) {
+                      onSuggestionSelect(suggestion)
+                    } else {
+                      router.push("/simulator")
+                    }
                     setQuery(suggestion.text)
                     setIsOpen(false)
                   }}

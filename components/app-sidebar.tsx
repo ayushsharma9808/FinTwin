@@ -1,30 +1,29 @@
 "use client"
 
-import { Brain, SlidersHorizontal, PieChart, Link2, Settings, Home, ChevronUp, User2, PanelLeftClose, PanelLeftOpen, Calculator } from "lucide-react"
-import { usePathname } from "next/navigation"
-import { useSidebar } from "@/components/ui/sidebar"
-
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-} from "@/components/ui/sidebar"
+  Brain,
+  SlidersHorizontal,
+  PieChart,
+  Link2,
+  Settings,
+  Home,
+  User2,
+  Calculator,
+  Receipt,
+  Target,
+  LogOut,
+} from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import Link from "next/link"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-context"
 
-// Menu items.
+// Menu items
 const items = [
   {
     title: "Dashboard",
@@ -40,6 +39,16 @@ const items = [
     title: "What-If Simulator",
     url: "/simulator",
     icon: SlidersHorizontal,
+  },
+  {
+    title: "Ledger & Expenses",
+    url: "/ledger",
+    icon: Receipt,
+  },
+  {
+    title: "Financial Goals",
+    url: "/goals",
+    icon: Target,
   },
   {
     title: "Risk & Portfolio",
@@ -58,56 +67,51 @@ const items = [
   },
 ]
 
-function SidebarToggle() {
-  const { toggleSidebar, state } = useSidebar()
-  
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={toggleSidebar}
-      className="h-8 w-8 shrink-0 hover:bg-blue-500/20 rounded-lg transition-all duration-200"
-    >
-      {state === "collapsed" ? (
-        <PanelLeftOpen className="h-4 w-4 text-blue-400" />
-      ) : (
-        <PanelLeftClose className="h-4 w-4 text-blue-400" />
-      )}
-    </Button>
-  )
-}
-
 export function AppSidebar() {
   const pathname = usePathname()
-  
+  const router = useRouter()
+  const { user, logout } = useAuth()
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/login")
+  }
+
   return (
-    <div className="w-16 h-screen bg-sidebar border-r border-sidebar-border flex flex-col">
+    <div className="w-16 h-screen bg-sidebar border-r border-sidebar-border flex flex-col shrink-0">
       <div className="p-3 flex flex-col items-center">
-        <div className="w-10 h-10 flex items-center justify-center rounded-lg text-white shadow-sm" style={{backgroundColor: '#11650b'}}>
+        <Link
+          href="/dashboard"
+          className="w-10 h-10 flex items-center justify-center rounded-lg text-white shadow-sm"
+          style={{ backgroundColor: "#11650b" }}
+          title="FinTwin Dashboard"
+        >
           <span className="text-sm font-bold">FT</span>
-        </div>
+        </Link>
       </div>
-      <div className="flex-1 p-3">
-        <div className="flex flex-col gap-3">
+      <div className="flex-1 p-3 overflow-y-auto scrollbar-none">
+        <div className="flex flex-col gap-2.5">
           {items.map((item) => {
             const isActive = pathname === item.url
             return (
-              <a
+              <Link
                 key={item.title}
                 href={item.url}
                 className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-200 group ${
-                  isActive 
-                    ? 'bg-blue-500/20 text-blue-400' 
-                    : 'hover:bg-blue-500/10 text-sidebar-foreground'
+                  isActive
+                    ? "bg-blue-500/20 text-blue-400"
+                    : "hover:bg-blue-500/10 text-sidebar-foreground"
                 }`}
                 title={item.title}
               >
-                <item.icon className={`h-5 w-5 transition-colors ${
-                  isActive 
-                    ? 'text-blue-400' 
-                    : 'text-sidebar-foreground group-hover:text-blue-400'
-                }`} />
-              </a>
+                <item.icon
+                  className={`h-5 w-5 transition-colors ${
+                    isActive
+                      ? "text-blue-400"
+                      : "text-sidebar-foreground group-hover:text-blue-400"
+                  }`}
+                />
+              </Link>
             )
           })}
         </div>
@@ -115,24 +119,34 @@ export function AppSidebar() {
       <div className="p-3 border-t border-sidebar-border">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-slate-600 to-slate-700 text-white hover:bg-blue-500/10 transition-all duration-200">
+            <button
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-gradient-to-br from-slate-600 to-slate-700 text-white hover:bg-blue-500/10 transition-all duration-200"
+              title={user?.name || "User Profile"}
+            >
               <User2 className="size-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="end" className="w-48">
-            <DropdownMenuItem>
-              <span>Account</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <span>Billing</span>
-            </DropdownMenuItem>
+          <DropdownMenuContent side="right" align="end" className="w-52">
+            <div className="px-2 py-1.5 text-xs">
+              <p className="font-semibold">{user?.name || "Ayush Sharma"}</p>
+              <p className="text-muted-foreground truncate">{user?.email || "ayush@fintwin.com"}</p>
+            </div>
+            <div className="my-1 border-t border-border" />
             <DropdownMenuItem asChild>
-              <a href="/settings">
+              <Link href="/settings">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
-              </a>
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/connect">
+                <Link2 className="mr-2 h-4 w-4" />
+                <span>Connected Accounts</span>
+              </Link>
+            </DropdownMenuItem>
+            <div className="my-1 border-t border-border" />
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
+              <LogOut className="mr-2 h-4 w-4" />
               <span>Sign out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

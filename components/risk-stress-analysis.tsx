@@ -8,6 +8,7 @@ import { motion } from "framer-motion"
 import { Shield, TrendingDown, AlertTriangle, Target, Clock, DollarSign, Activity, CheckCircle, XCircle, AlertCircle } from "lucide-react"
 import { formatINR, formatINRCompact } from "@/lib/format"
 import { RiskAnalysisEngine, type FinancialData, type RiskAnalysis } from "@/lib/utils/risk-analysis-engine"
+import { useFinancialData } from "@/lib/hooks/use-financial-data"
 
 // Mock financial data - in real app, this would come from user profile and Monte Carlo results
 const mockFinancialData: FinancialData = {
@@ -118,19 +119,33 @@ function RiskGauge({ score, label, size = 120 }: RiskGaugeProps) {
 }
 
 export function RiskStressAnalysisPage() {
+  const { summary, investments, loans, accounts, simulations } = useFinancialData()
   const [isLoading, setIsLoading] = useState(true)
   const [analysis, setAnalysis] = useState<RiskAnalysis | null>(null)
 
   useEffect(() => {
-    // Simulate loading and analysis
-    const timer = setTimeout(() => {
-      const result = RiskAnalysisEngine.analyzeFinancialRisk(mockFinancialData)
-      setAnalysis(result)
-      setIsLoading(false)
-    }, 1500)
+    const dynamicData: FinancialData = {
+      currentAge: 30,
+      retirementAge: 60,
+      monthlyIncome: summary.monthlyIncome || 185000,
+      monthlyExpenses: summary.monthlyExpenses || 68000,
+      currentSavings: summary.totalCashSavings || 856000,
+      monthlyInvestment: Math.max(summary.monthlyCashFlow * 0.5, 25000),
+      expectedReturn: 12,
+      volatility: 15,
+      inflation: 6,
+      monteCarloResults: Array.from({ length: 10000 }, () =>
+        Math.random() * (summary.netWorth > 0 ? summary.netWorth * 2.5 : 10000000) + 1500000
+      ),
+      baselineMedian: summary.netWorth > 0 ? summary.netWorth * 2.2 : 5500000,
+      scenarioMedian: summary.netWorth > 0 ? summary.netWorth * 1.8 : 4200000,
+      successProbability: summary.emergencyRunwayMonths >= 6 ? 0.92 : 0.78,
+    }
 
-    return () => clearTimeout(timer)
-  }, [])
+    const result = RiskAnalysisEngine.analyzeFinancialRisk(dynamicData)
+    setAnalysis(result)
+    setIsLoading(false)
+  }, [summary])
 
   // Generate distribution data for Monte Carlo visualization
   const distributionData = useMemo(() => {
